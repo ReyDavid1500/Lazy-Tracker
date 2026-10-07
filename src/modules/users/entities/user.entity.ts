@@ -28,9 +28,8 @@ export class User extends Document {
   @Prop({ default: true })
   isActive: boolean;
 
-  @Prop({ default: null })
+  @Prop({ type: String, default: null })
   pushToken: string | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-UserSchema.index({ businessId: 1, email: 1 }, { unique: true });

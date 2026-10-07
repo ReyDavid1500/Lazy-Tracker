@@ -18,22 +18,22 @@ export class Product extends Document {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ default: null, trim: true })
+  @Prop({ type: String, default: null, trim: true })
   brand: string | null;
 
-  @Prop({ default: null, trim: true })
+  @Prop({ type: String, default: null, trim: true })
   sku: string | null;
 
-  @Prop({ required: true, default: 3 })
+  @Prop({ type: Number, required: true, default: 3 })
   lowStockThreshold: number;
 
-  @Prop({ required: true, default: 0 })
+  @Prop({ type: Number, required: true, default: 0 })
   currentStock: number;
 
-  @Prop({ default: null })
+  @Prop({ type: String, default: null })
   imageUrl: string | null;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 }
 

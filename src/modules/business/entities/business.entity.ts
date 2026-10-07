@@ -14,4 +14,3 @@ export class Business extends Document {
 }
 
 export const BusinessSchema = SchemaFactory.createForClass(Business);
-BusinessSchema.index({ slug: 1 }, { unique: true });

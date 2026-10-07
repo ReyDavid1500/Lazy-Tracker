@@ -26,10 +26,11 @@ export class StockEntry extends Document {
   })
   scannedByUserId: Types.ObjectId;
 
-  @Prop({ required: true, min: 0 })
+  @Prop({ type: Number, required: true, min: 0 })
   quantity: number;
 
-  @Prop({ default: null })
+  /** Raw text returned by Claude API for traceability */
+  @Prop({ type: String, default: null })
   aiIdentificationNote: string | null;
 }
 
