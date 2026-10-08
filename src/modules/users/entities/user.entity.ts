@@ -16,8 +16,13 @@ export class User extends Document {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true })
-  email: string;
+  /** Managers log in with email. Sparse so null values don't conflict. */
+  @Prop({ type: String, unique: true, lowercase: true, trim: true, sparse: true, default: null })
+  email: string | null;
+
+  /** Workers log in with userName (auto-generated). Sparse so null values don't conflict. */
+  @Prop({ type: String, unique: true, trim: true, sparse: true, default: null })
+  userName: string;
 
   @Prop({ required: true })
   passwordHash: string;
