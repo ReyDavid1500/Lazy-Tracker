@@ -7,6 +7,7 @@ import { BusinessModule } from './modules/business/index.js';
 import { UsersModule } from './modules/users/index.js';
 import { ProductsModule } from './modules/products/index.js';
 import { StockModule } from './modules/stock/index.js';
+import { ScanModule } from './modules/scan/index.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 
@@ -19,6 +20,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard.js';
     UsersModule,
     ProductsModule,
     StockModule,
+    ScanModule,
   ],
   providers: [
     // Apply JwtAuthGuard globally — routes opt out with @Public()
