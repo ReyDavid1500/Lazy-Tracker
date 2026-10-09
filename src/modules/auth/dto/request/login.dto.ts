@@ -1,7 +1,6 @@
 import { IsDefined, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
-  /** Email for managers, auto-generated userName for workers. */
   @IsDefined()
   @IsString()
   @IsNotEmpty()

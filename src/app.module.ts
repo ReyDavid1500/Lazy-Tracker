@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/index.js';
 import { ProductsModule } from './modules/products/index.js';
 import { StockModule } from './modules/stock/index.js';
 import { ScanModule } from './modules/scan/index.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 
@@ -21,11 +22,10 @@ import { RolesGuard } from './modules/auth/guards/roles.guard.js';
     ProductsModule,
     StockModule,
     ScanModule,
+    NotificationsModule,
   ],
   providers: [
-    // Apply JwtAuthGuard globally — routes opt out with @Public()
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Apply RolesGuard globally — routes opt in with @Roles(...)
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })

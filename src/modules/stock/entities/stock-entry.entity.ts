@@ -29,7 +29,6 @@ export class StockEntry extends Document {
   @Prop({ type: Number, required: true, min: 0 })
   quantity: number;
 
-  /** Raw text returned by Claude API for traceability */
   @Prop({ type: String, default: null })
   aiIdentificationNote: string | null;
 }
