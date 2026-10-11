@@ -1,4 +1,4 @@
-import { IsDefined, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsDefined, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateWorkerDto {
   @IsDefined()
@@ -10,4 +10,8 @@ export class CreateWorkerDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  @IsOptional()
+  @IsEnum(['worker', 'manager'])
+  role?: 'worker' | 'manager';
 }

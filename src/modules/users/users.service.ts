@@ -1,10 +1,11 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity.js';
 import type { CreateWorkerDto } from './dto/create-worker.dto.js';
 import type { WorkerResponseDto } from './dto/worker-response.dto.js';
+import type { UpdatePushTokenDto } from './dto/update-push-token.dto.js';
 import { AuthService } from '../auth/services/auth.service.js';
 import { Business } from '../business/index.js';
 
@@ -28,9 +29,9 @@ export class UsersService {
       throw new ConflictException('Business not found');
     }
 
+    const role = dto.role ?? 'worker';
     const baseUserName = this.authService.generateUserName(dto.name, business.name);
 
-    // Ensure userName uniqueness by appending a counter if needed
     let userName = baseUserName;
     let attempt = 1;
     while (await this.userModel.findOne({ userName })) {
@@ -40,21 +41,48 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-    const worker = await this.userModel.create({
+    const member = await this.userModel.create({
       businessId,
       name: dto.name,
       email: null,
       userName,
       passwordHash,
-      role: 'worker',
+      role,
     });
 
     return {
-      id: (worker._id as { toString(): string }).toString(),
-      name: worker.name,
+      id: (member._id as { toString(): string }).toString(),
+      name: member.name,
       userName,
-      role: 'worker',
+      role,
       businessId,
     };
+  }
+
+  async updatePushToken(userId: string, dto: UpdatePushTokenDto): Promise<void> {
+    const result = await this.userModel.updateOne(
+      { _id: userId },
+      { $set: { pushToken: dto.pushToken } },
+    );
+
+    if (result.matchedCount === 0) {
+      throw new NotFoundException('User not found');
+    }
+  }
+
+  async listMembers(businessId: string): Promise<WorkerResponseDto[]> {
+    const users = await this.userModel
+      .find({ businessId })
+      .select('name userName role businessId')
+      .sort({ name: 1 })
+      .exec();
+
+    return users.map((u) => ({
+      id: (u._id as { toString(): string }).toString(),
+      name: u.name,
+      userName: u.userName,
+      role: u.role as 'worker',
+      businessId: u.businessId.toString(),
+    }));
   }
 }

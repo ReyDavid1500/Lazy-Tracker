@@ -39,4 +39,5 @@ export class Product extends Document {
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 ProductSchema.index({ businessId: 1, name: 1 });
-ProductSchema.index({ businessId: 1, sku: 1 }, { unique: true, sparse: true });
+// Sparse indexes still index explicit nulls; a partial index on strings only allows many products without SKU.
+ProductSchema.index({ businessId: 1, sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });

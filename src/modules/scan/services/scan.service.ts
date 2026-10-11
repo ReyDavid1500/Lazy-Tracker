@@ -7,25 +7,29 @@ import type { ScanResultDto } from '../dto/scan-result.dto.js';
 import type { ScanResponseDto, MatchedProductDto } from '../dto/scan-response.dto.js';
 import type { Product } from '../../products/index.js';
 
-interface ProductJson {
+type ProductJson = {
   name: string;
   brand: string | null;
   sku: string | null;
   description: string | null;
-}
+};
 
-const SYSTEM_PROMPT = `You are a product-identification assistant for a bakery inventory app.
+const SYSTEM_PROMPT = `You are a product-identification assistant for a food/bakery inventory app.
 When given a photo of a product, respond with ONLY a JSON object — no markdown, no explanation.
 The JSON must exactly match this shape:
 {
   "name": "<product name>",
   "brand": "<brand name or null>",
-  "sku": "<barcode/SKU visible on packaging or null>",
+  "sku": "<barcode or SKU or null>",
   "description": "<one-sentence description or null>"
 }
-Be as specific as possible. Prefer "Dinkel Vollkornbrot 500g" over "Bread".
-Never wrap the JSON in markdown. Never add explanatory text before or after.
-If you cannot identify the product, set name to "Unknown product" and all other fields to null.`;
+
+Rules:
+1. SKU/barcode: scan the entire image carefully for any barcode numbers, EAN-13, UPC-A, QR codes, or SKU codes printed on the packaging. If you see ANY digits that look like a barcode (typically 8–14 digits), put them in "sku". This is the most important field for avoiding duplicates.
+2. Name: be specific and consistent. Include weight/volume if printed (e.g. "Dinkel Vollkornbrot 500g"). Always use the name as printed on the label — do not translate or paraphrase.
+3. Brand: extract exactly as printed. If the brand is part of the product name, also include it separately in "brand".
+4. Never wrap the JSON in markdown. Never add explanatory text before or after.
+5. If you cannot identify the product at all, set name to "Unknown product" and all other fields to null.`;
 
 @Injectable()
 export class ScanService {
@@ -45,20 +49,12 @@ export class ScanService {
     this.client = new Anthropic({ apiKey });
   }
 
-  /**
-   * Full scan pipeline:
-   * 1. Send image to Claude API → structured product JSON
-   * 2. Search MongoDB for a matching product in this business
-   * 3. Return both so the mobile app can branch on matchedProduct
-   */
   async scan(dto: ScanImageDto, businessId: string): Promise<ScanResponseDto> {
     const identification = await this.#identify(dto);
     const matchedProduct = await this.#lookupProduct(businessId, identification);
 
     return { identification, matchedProduct };
   }
-
-  // ─── Private helpers ────────────────────────────────────────────────────────
 
   async #identify(dto: ScanImageDto): Promise<ScanResultDto> {
     let rawNote: string;
@@ -102,6 +98,7 @@ export class ScanService {
     }
 
     let parsed: ProductJson;
+
     try {
       parsed = JSON.parse(rawNote) as ProductJson;
     } catch {
@@ -124,18 +121,23 @@ export class ScanService {
   ): Promise<MatchedProductDto | null> {
     if (identification.name === 'Unknown product') return null;
 
-    const product = await this.productsService.findByAiResult(
+    const match = await this.productsService.findByAiResult({
       businessId,
-      identification.name,
-      identification.brand,
-    );
+      name: identification.name,
+      brand: identification.brand,
+      sku: identification.sku,
+    });
 
-    if (!product) return null;
+    if (!match) return null;
 
-    return this.#toMatchedProductDto(product);
+    return this.#toMatchedProductDto(match.product, match.matchType, match.matchScore);
   }
 
-  #toMatchedProductDto(product: Product): MatchedProductDto {
+  #toMatchedProductDto(
+    product: Product,
+    matchType: 'sku' | 'exact' | 'fuzzy',
+    matchScore: number,
+  ): MatchedProductDto {
     return {
       id: (product._id as { toString(): string }).toString(),
       name: product.name,
@@ -143,6 +145,8 @@ export class ScanService {
       sku: product.sku,
       currentStock: product.currentStock,
       lowStockThreshold: product.lowStockThreshold,
+      matchType,
+      matchScore,
     };
   }
 }

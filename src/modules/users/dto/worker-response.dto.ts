@@ -2,6 +2,6 @@ export class WorkerResponseDto {
   id: string;
   name: string;
   userName: string;
-  role: 'worker';
+  role: 'worker' | 'manager';
   businessId: string;
 }
