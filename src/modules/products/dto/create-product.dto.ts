@@ -10,10 +10,6 @@ export class CreateProductDto {
   brand?: string;
 
   @IsOptional()
-  @IsString()
-  sku?: string;
-
-  @IsOptional()
   @IsNumber()
   @Min(0)
   initialStock?: number;

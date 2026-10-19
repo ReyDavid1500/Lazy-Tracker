@@ -7,8 +7,6 @@ export class ScanResultDto {
 
   brand: string | null;
 
-  sku: string | null;
-
   description: string | null;
 
   rawNote: string;

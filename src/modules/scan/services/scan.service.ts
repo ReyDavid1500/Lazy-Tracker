@@ -10,7 +10,6 @@ import type { Product } from '../../products/index.js';
 type ProductJson = {
   name: string;
   brand: string | null;
-  sku: string | null;
   description: string | null;
 };
 
@@ -20,16 +19,14 @@ The JSON must exactly match this shape:
 {
   "name": "<product name>",
   "brand": "<brand name or null>",
-  "sku": "<barcode or SKU or null>",
   "description": "<one-sentence description or null>"
 }
 
 Rules:
-1. SKU/barcode: scan the entire image carefully for any barcode numbers, EAN-13, UPC-A, QR codes, or SKU codes printed on the packaging. If you see ANY digits that look like a barcode (typically 8–14 digits), put them in "sku". This is the most important field for avoiding duplicates.
-2. Name: be specific and consistent. Include weight/volume if printed (e.g. "Dinkel Vollkornbrot 500g"). Always use the name as printed on the label — do not translate or paraphrase.
-3. Brand: extract exactly as printed. If the brand is part of the product name, also include it separately in "brand".
-4. Never wrap the JSON in markdown. Never add explanatory text before or after.
-5. If you cannot identify the product at all, set name to "Unknown product" and all other fields to null.`;
+1. Name: be specific and consistent. Include weight/volume if printed (e.g. "Dinkel Vollkornbrot 500g"). Always use the name as printed on the label — do not translate or paraphrase.
+2. Brand: extract exactly as printed. If the brand is part of the product name, also include it separately in "brand".
+3. Never wrap the JSON in markdown. Never add explanatory text before or after.
+4. If you cannot identify the product at all, set name to "Unknown product" and all other fields to null.`;
 
 @Injectable()
 export class ScanService {
@@ -103,13 +100,12 @@ export class ScanService {
       parsed = JSON.parse(rawNote) as ProductJson;
     } catch {
       this.logger.warn(`Claude returned non-JSON: ${rawNote}`);
-      parsed = { name: 'Unknown product', brand: null, sku: null, description: null };
+      parsed = { name: 'Unknown product', brand: null, description: null };
     }
 
     return {
       name: parsed.name ?? 'Unknown product',
       brand: parsed.brand ?? null,
-      sku: parsed.sku ?? null,
       description: parsed.description ?? null,
       rawNote,
     };
@@ -125,7 +121,6 @@ export class ScanService {
       businessId,
       name: identification.name,
       brand: identification.brand,
-      sku: identification.sku,
     });
 
     if (!match) return null;
@@ -135,14 +130,13 @@ export class ScanService {
 
   #toMatchedProductDto(
     product: Product,
-    matchType: 'sku' | 'exact' | 'fuzzy',
+    matchType: 'exact' | 'fuzzy',
     matchScore: number,
   ): MatchedProductDto {
     return {
       id: (product._id as { toString(): string }).toString(),
       name: product.name,
       brand: product.brand,
-      sku: product.sku,
       currentStock: product.currentStock,
       lowStockThreshold: product.lowStockThreshold,
       matchType,

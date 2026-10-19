@@ -9,7 +9,6 @@ export type InventoryItemDto = {
   productId: string;
   name: string;
   brand: string | null;
-  sku: string | null;
   currentStock: number;
   lowStockThreshold: number;
   isLow: boolean;
@@ -19,12 +18,11 @@ type FindByAiResultParams = {
   businessId: string;
   name: string;
   brand: string | null;
-  sku: string | null;
 };
 
 export type ProductMatch = {
   product: Product;
-  matchType: 'sku' | 'exact' | 'fuzzy';
+  matchType: 'exact' | 'fuzzy';
   matchScore: number;
 };
 
@@ -40,35 +38,23 @@ export class ProductsService {
   /**
    * Searches for an existing product within a business using a priority chain:
    *
-   * 1. SKU exact-match  (strongest signal — barcodes don't lie)
-   * 2. Name + Brand case-insensitive exact-match
-   * 3. Name-only case-insensitive exact-match
-   * 4. Fuzzy token-overlap: tokenise both names, compute Jaccard similarity,
+   * 1. Name + Brand case-insensitive exact match
+   * 2. Name-only case-insensitive exact match
+   * 3. Fuzzy token-overlap: tokenise both names, compute Jaccard similarity,
    *    return best candidate above SIMILARITY_THRESHOLD
    *
-   * Steps 1–3 are O(1) indexed queries. Step 4 loads the full catalogue once
+   * Steps 1–2 are O(1) indexed queries. Step 3 loads the full catalogue once
    * (typically a few dozen products per business) and scores in memory.
    */
   async findByAiResult({
     businessId,
     name,
     brand,
-    sku,
   }: FindByAiResultParams): Promise<ProductMatch | null> {
     const base = { businessId, isActive: true };
-
-    // ── 1. SKU exact match ─────────────────────────────────────────────────
-    if (sku) {
-      const bySkuMatch = await this.productModel
-        .findOne({ ...base, sku: { $regex: new RegExp(`^${escapeRegex(sku)}$`, 'i') } })
-        .exec();
-
-      if (bySkuMatch) return { product: bySkuMatch, matchType: 'sku', matchScore: 1 };
-    }
-
-    // ── 2. Name + Brand exact match ────────────────────────────────────────
     const nameExact = { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') };
 
+    // ── 1. Name + Brand exact match ────────────────────────────────────────
     if (brand) {
       const byNameBrandMatch = await this.productModel
         .findOne({
@@ -81,22 +67,21 @@ export class ProductsService {
       if (byNameBrandMatch) return { product: byNameBrandMatch, matchType: 'exact', matchScore: 1 };
     }
 
-    // ── 3. Name-only exact match ───────────────────────────────────────────
+    // ── 2. Name-only exact match ───────────────────────────────────────────
     const byNameMatch = await this.productModel
       .findOne({ ...base, name: nameExact })
       .exec();
 
     if (byNameMatch) return { product: byNameMatch, matchType: 'exact', matchScore: 1 };
 
-    // ── 4. Fuzzy token-overlap across full catalogue ───────────────────────
+    // ── 3. Fuzzy token-overlap across full catalogue ───────────────────────
     const allProducts = await this.productModel
-      .find(base, { name: 1, brand: 1, sku: 1 })
+      .find(base, { name: 1, brand: 1 })
       .exec();
 
     if (allProducts.length === 0) return null;
 
     const queryTokens = tokenise(name);
-    // If AI also gave a brand, append it so brand words strengthen the match
     const queryTokensWithBrand = brand
       ? new Set([...queryTokens, ...tokenise(brand)])
       : queryTokens;
@@ -116,7 +101,6 @@ export class ProductsService {
     }
 
     if (bestScore >= SIMILARITY_THRESHOLD && bestProductId) {
-      // Reload the full document so callers get all fields
       const full = await this.productModel.findOne({ ...base, _id: bestProductId }).exec();
       if (full) return { product: full, matchType: 'fuzzy', matchScore: bestScore };
     }
@@ -129,7 +113,6 @@ export class ProductsService {
       businessId: new Types.ObjectId(businessId),
       name: dto.name,
       brand: dto.brand ?? null,
-      sku: dto.sku ?? null,
       currentStock: dto.initialStock ?? 0,
       lowStockThreshold: 3,
       imageUrl: null,
@@ -147,7 +130,6 @@ export class ProductsService {
       productId: (p._id as { toString(): string }).toString(),
       name: p.name,
       brand: p.brand,
-      sku: p.sku,
       currentStock: p.currentStock,
       lowStockThreshold: p.lowStockThreshold,
       isLow: p.currentStock <= p.lowStockThreshold,
@@ -187,11 +169,6 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Split a string into a set of lowercase tokens.
- * Strips punctuation, filler words, and size suffixes so that
- * "500g" vs "400g" differences don't dominate the similarity score.
- */
 const STOP_WORDS = new Set([
   'the', 'and', 'or', 'with', 'von', 'und', 'mit', 'de', 'la', 'le',
   'du', 'des', 'der', 'die', 'das',
@@ -207,10 +184,6 @@ function tokenise(text: string): Set<string> {
   );
 }
 
-/**
- * Jaccard similarity = |A ∩ B| / |A ∪ B|
- * Returns 0–1. Two identical token sets → 1.0.
- */
 function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 && b.size === 0) return 1;
   if (a.size === 0 || b.size === 0) return 0;

@@ -5,11 +5,10 @@ export class MatchedProductDto {
   id: string;
   name: string;
   brand: string | null;
-  sku: string | null;
   currentStock: number;
   lowStockThreshold: number;
-  /** How the match was found: 'sku' | 'exact' | 'fuzzy' */
-  matchType: 'sku' | 'exact' | 'fuzzy';
+  /** How the match was found: 'exact' | 'fuzzy' */
+  matchType: 'exact' | 'fuzzy';
   /** Similarity score 0–1 (only meaningful for 'fuzzy' matches) */
   matchScore: number;
 }

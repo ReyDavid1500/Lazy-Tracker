@@ -80,7 +80,6 @@ export class StockService {
       productId: (p._id as { toString(): string }).toString(),
       name: p.name,
       brand: p.brand,
-      sku: p.sku,
       currentStock: p.currentStock,
       lowStockThreshold: p.lowStockThreshold,
       isLow: this.isLowStock(p.currentStock, p.lowStockThreshold),
