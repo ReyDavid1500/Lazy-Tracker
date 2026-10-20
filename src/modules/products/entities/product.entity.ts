@@ -32,6 +32,20 @@ export class Product extends Document {
 
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
+
+  /**
+   * Optional: manager-set number of days after which stock should be re-counted.
+   * Null means no staleness tracking for this product.
+   */
+  @Prop({ type: Number, default: null })
+  updateIntervalDays: number | null;
+
+  /**
+   * Timestamp of the last stock update (set whenever currentStock is written).
+   * Used to compute staleness on the frontend.
+   */
+  @Prop({ type: Date, default: null })
+  stockLastUpdatedAt: Date | null;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

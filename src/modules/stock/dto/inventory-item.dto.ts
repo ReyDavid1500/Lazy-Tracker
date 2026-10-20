@@ -6,4 +6,6 @@ export class InventoryItemDto {
   currentStock: number;
   lowStockThreshold: number;
   isLow: boolean;
+  updateIntervalDays: number | null;
+  stockLastUpdatedAt: Date | null;
 }

@@ -48,8 +48,9 @@ export class StockService {
       aiIdentificationNote: dto.aiIdentificationNote ?? null,
     });
 
-    // Update the product's current stock count
+    // Update the product's current stock count and staleness timestamp
     product.currentStock = dto.quantity;
+    product.stockLastUpdatedAt = new Date();
     await product.save();
 
     // Check if we need to fire a low-stock alert
@@ -83,6 +84,8 @@ export class StockService {
       currentStock: p.currentStock,
       lowStockThreshold: p.lowStockThreshold,
       isLow: this.isLowStock(p.currentStock, p.lowStockThreshold),
+      updateIntervalDays: p.updateIntervalDays ?? null,
+      stockLastUpdatedAt: p.stockLastUpdatedAt ?? null,
     }));
   }
 

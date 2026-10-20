@@ -12,6 +12,7 @@ import {
 import { InventoryItemDto, ProductsService } from './products.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateThresholdDto } from './dto/update-threshold.dto.js';
+import { UpdateIntervalDto } from './dto/update-interval.dto.js';
 import { Roles } from '../auth/decorators/index.js';
 import { CurrentUser } from '../auth/decorators/index.js';
 import type { JwtPayload } from '../auth/types.js';
@@ -47,6 +48,18 @@ export class ProductsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<Product> {
     return this.productsService.updateThreshold(productId, user.businessId, dto);
+  }
+
+  /** Manager sets how many days between expected stock counts (optional, null clears it). */
+  @Roles('manager')
+  @Patch(':id/interval')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async updateInterval(
+    @Param('id') productId: string,
+    @Body() dto: UpdateIntervalDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    await this.productsService.updateInterval(productId, user.businessId, dto);
   }
 
   /** Manager soft-deletes a product (marks isActive: false). */

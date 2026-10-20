@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Product } from './entities/product.entity.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { UpdateThresholdDto } from './dto/update-threshold.dto.js';
+import type { UpdateIntervalDto } from './dto/update-interval.dto.js';
 
 export type InventoryItemDto = {
   productId: string;
@@ -12,6 +13,8 @@ export type InventoryItemDto = {
   currentStock: number;
   lowStockThreshold: number;
   isLow: boolean;
+  updateIntervalDays: number | null;
+  stockLastUpdatedAt: Date | null;
 };
 
 type FindByAiResultParams = {
@@ -115,6 +118,7 @@ export class ProductsService {
       brand: dto.brand ?? null,
       currentStock: dto.initialStock ?? 0,
       lowStockThreshold: 3,
+      stockLastUpdatedAt: dto.initialStock !== undefined ? new Date() : null,
       imageUrl: null,
       isActive: true,
     });
@@ -133,6 +137,8 @@ export class ProductsService {
       currentStock: p.currentStock,
       lowStockThreshold: p.lowStockThreshold,
       isLow: p.currentStock <= p.lowStockThreshold,
+      updateIntervalDays: p.updateIntervalDays ?? null,
+      stockLastUpdatedAt: p.stockLastUpdatedAt ?? null,
     }));
   }
 
@@ -150,6 +156,19 @@ export class ProductsService {
     if (!updatedProduct) throw new NotFoundException('Product not found');
 
     return updatedProduct;
+  }
+
+  async updateInterval(
+    productId: string,
+    businessId: string,
+    dto: UpdateIntervalDto,
+  ): Promise<void> {
+    const updated = await this.productModel.findOneAndUpdate(
+      { _id: productId, businessId, isActive: true },
+      { $set: { updateIntervalDays: dto.updateIntervalDays ?? null } },
+      { returnDocument: 'after' },
+    );
+    if (!updated) throw new NotFoundException('Product not found');
   }
 
   /** Manager-only: soft-delete a product by marking it inactive. */
