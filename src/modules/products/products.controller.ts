@@ -8,8 +8,10 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
-import { InventoryItemDto, ProductsService } from './products.service.js';
+import { InventoryItemDto, PaginatedInventoryDto, ProductsService } from './products.service.js';
+import { InventoryQueryDto } from './dto/inventory-query.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateThresholdDto } from './dto/update-threshold.dto.js';
 import { UpdateIntervalDto } from './dto/update-interval.dto.js';
@@ -32,11 +34,14 @@ export class ProductsController {
     return this.productsService.create(dto, user.businessId);
   }
 
-  /** List all active products for the caller's business. */
+  /** List paginated active products for the caller's business, with optional search. */
   @Roles('manager', 'worker')
   @Get()
-  getInventory(@CurrentUser() user: JwtPayload): Promise<InventoryItemDto[]> {
-    return this.productsService.getInventory(user.businessId);
+  getInventory(
+    @Query() query: InventoryQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PaginatedInventoryDto> {
+    return this.productsService.getInventory(user.businessId, query);
   }
 
   /** Manager updates the low-stock alert threshold for a product. */

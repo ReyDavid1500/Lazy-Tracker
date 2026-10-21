@@ -5,6 +5,7 @@ import { Product } from './entities/product.entity.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { UpdateThresholdDto } from './dto/update-threshold.dto.js';
 import type { UpdateIntervalDto } from './dto/update-interval.dto.js';
+import type { InventoryQueryDto } from './dto/inventory-query.dto.js';
 
 export type InventoryItemDto = {
   productId: string;
@@ -15,6 +16,14 @@ export type InventoryItemDto = {
   isLow: boolean;
   updateIntervalDays: number | null;
   stockLastUpdatedAt: Date | null;
+};
+
+
+export type PaginatedInventoryDto = {
+  data: InventoryItemDto[];
+  total: number;
+  page: number;
+  limit: number;
 };
 
 type FindByAiResultParams = {
@@ -124,22 +133,41 @@ export class ProductsService {
     });
   }
 
-  async getInventory(businessId: string): Promise<InventoryItemDto[]> {
-    const products = await this.productModel
-      .find({ businessId, isActive: true })
-      .sort({ name: 1 })
-      .exec();
+  async getInventory(
+    businessId: string,
+    query: InventoryQueryDto,
+  ): Promise<PaginatedInventoryDto> {
+    const page  = query.page  ?? 1;
+    const limit = query.limit ?? 10;
+    const skip  = (page - 1) * limit;
 
-    return products.map((p) => ({
-      productId: (p._id as { toString(): string }).toString(),
-      name: p.name,
-      brand: p.brand,
-      currentStock: p.currentStock,
-      lowStockThreshold: p.lowStockThreshold,
-      isLow: p.currentStock <= p.lowStockThreshold,
-      updateIntervalDays: p.updateIntervalDays ?? null,
-      stockLastUpdatedAt: p.stockLastUpdatedAt ?? null,
-    }));
+    const filter: Record<string, unknown> = { businessId, isActive: true };
+    if (query.search?.trim()) {
+      const escaped = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rx = new RegExp(escaped, 'i');
+      filter['$or'] = [{ name: rx }, { brand: rx }];
+    }
+
+    const [products, total] = await Promise.all([
+      this.productModel.find(filter).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.productModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      data: products.map((p) => ({
+        productId: (p._id as { toString(): string }).toString(),
+        name: p.name,
+        brand: p.brand,
+        currentStock: p.currentStock,
+        lowStockThreshold: p.lowStockThreshold,
+        isLow: p.currentStock <= p.lowStockThreshold,
+        updateIntervalDays: p.updateIntervalDays ?? null,
+        stockLastUpdatedAt: p.stockLastUpdatedAt ?? null,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   async updateThreshold(
