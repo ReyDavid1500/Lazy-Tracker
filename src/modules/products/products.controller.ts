@@ -10,7 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { InventoryItemDto, PaginatedInventoryDto, ProductsService } from './products.service.js';
+import { AlertCountsDto, PaginatedInventoryDto, ProductsService } from './products.service.js';
 import { InventoryQueryDto } from './dto/inventory-query.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateThresholdDto } from './dto/update-threshold.dto.js';
@@ -44,7 +44,39 @@ export class ProductsController {
     return this.productsService.getInventory(user.businessId, query);
   }
 
-  /** Manager updates the low-stock alert threshold for a product. */
+  /**
+   * Products that have any alert condition (low stock, out of stock, or stale).
+   * MUST be declared before generic :id routes so NestJS resolves it correctly.
+   */
+  @Roles('manager', 'worker')
+  @Get('alerts')
+  getAlerts(
+    @Query() query: InventoryQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PaginatedInventoryDto> {
+    return this.productsService.getAlerts(user.businessId, query);
+  }
+
+  /** Products with zero stock. */
+  @Roles('manager', 'worker')
+  @Get('out-of-stock')
+  getOutOfStock(
+    @Query() query: InventoryQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PaginatedInventoryDto> {
+    return this.productsService.getOutOfStock(user.businessId, query);
+  }
+
+  /** Badge counts: how many products have alerts and how many are out of stock. */
+  @Roles('manager', 'worker')
+  @Get('counts')
+  getAlertCounts(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AlertCountsDto> {
+    return this.productsService.getAlertCounts(user.businessId);
+  }
+
+    /** Manager updates the low-stock alert threshold for a product. */
   @Roles('manager')
   @Patch(':id/threshold')
   updateThreshold(

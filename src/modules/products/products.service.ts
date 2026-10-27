@@ -26,6 +26,11 @@ export type PaginatedInventoryDto = {
   limit: number;
 };
 
+export type AlertCountsDto = {
+  alerts: number;
+  outOfStock: number;
+};
+
 type FindByAiResultParams = {
   businessId: string;
   name: string;
@@ -154,23 +159,116 @@ export class ProductsService {
     ]);
 
     return {
-      data: products.map((p) => ({
-        productId: (p._id as { toString(): string }).toString(),
-        name: p.name,
-        brand: p.brand,
-        currentStock: p.currentStock,
-        lowStockThreshold: p.lowStockThreshold,
-        isLow: p.currentStock <= p.lowStockThreshold,
-        updateIntervalDays: p.updateIntervalDays ?? null,
-        stockLastUpdatedAt: p.stockLastUpdatedAt ?? null,
-      })),
+      data: products.map((p) => this.toDto(p)),
       total,
       page,
       limit,
     };
   }
 
-  async updateThreshold(
+  /**
+   * Products with any alert condition:
+   *  - currentStock === 0
+   *  - currentStock <= lowStockThreshold
+   *  - stockLastUpdatedAt older than updateIntervalDays
+   * A product appears at most once even if multiple conditions apply.
+   */
+  async getAlerts(
+    businessId: string,
+    query: InventoryQueryDto,
+  ): Promise<PaginatedInventoryDto> {
+    const page  = query.page  ?? 1;
+    const limit = query.limit ?? 10;
+    const skip  = (page - 1) * limit;
+    const nowMs = Date.now();
+
+    const baseFilter: Record<string, unknown> = { businessId, isActive: true };
+    if (query.search?.trim()) {
+      const escaped = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rx = new RegExp(escaped, 'i');
+      baseFilter['$or'] = [{ name: rx }, { brand: rx }];
+    }
+
+    const allCandidates = await this.productModel.find(baseFilter).sort({ name: 1 }).exec();
+    const alertProducts = allCandidates.filter((p) => {
+      if (p.currentStock === 0) return true;
+      if (p.currentStock <= p.lowStockThreshold) return true;
+      if (
+        p.updateIntervalDays != null &&
+        p.stockLastUpdatedAt != null &&
+        nowMs - new Date(p.stockLastUpdatedAt).getTime() > p.updateIntervalDays * 86_400_000
+      ) return true;
+      return false;
+    });
+
+    const total = alertProducts.length;
+    const paginated = alertProducts.slice(skip, skip + limit);
+    return { data: paginated.map((p) => this.toDto(p)), total, page, limit };
+  }
+
+  /** Products where currentStock === 0, paginated. */
+  async getOutOfStock(
+    businessId: string,
+    query: InventoryQueryDto,
+  ): Promise<PaginatedInventoryDto> {
+    const page  = query.page  ?? 1;
+    const limit = query.limit ?? 10;
+    const skip  = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = { businessId, isActive: true, currentStock: 0 };
+    if (query.search?.trim()) {
+      const escaped = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rx = new RegExp(escaped, 'i');
+      filter['$or'] = [{ name: rx }, { brand: rx }];
+    }
+
+    const [products, total] = await Promise.all([
+      this.productModel.find(filter).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.productModel.countDocuments(filter).exec(),
+    ]);
+    return { data: products.map((p) => this.toDto(p)), total, page, limit };
+  }
+
+  /**
+   * Returns counts of alert and out-of-stock products.
+   * Called once on page mount to populate tab badges.
+   */
+  async getAlertCounts(businessId: string): Promise<AlertCountsDto> {
+    const nowMs = Date.now();
+    const [outOfStockCount, allActive] = await Promise.all([
+      this.productModel.countDocuments({ businessId, isActive: true, currentStock: 0 }).exec(),
+      this.productModel.find({ businessId, isActive: true }).exec(),
+    ]);
+
+    const alerts = allActive.filter((p) => {
+      if (p.currentStock === 0) return true;
+      if (p.currentStock <= p.lowStockThreshold) return true;
+      if (
+        p.updateIntervalDays != null &&
+        p.stockLastUpdatedAt != null &&
+        nowMs - new Date(p.stockLastUpdatedAt).getTime() > p.updateIntervalDays * 86_400_000
+      ) return true;
+      return false;
+    }).length;
+
+    return { alerts, outOfStock: outOfStockCount };
+  }
+
+  /** Document → InventoryItemDto */
+  private toDto(p: Product): InventoryItemDto {
+    return {
+      productId: (p._id as { toString(): string }).toString(),
+      name: p.name,
+      brand: p.brand,
+      currentStock: p.currentStock,
+      lowStockThreshold: p.lowStockThreshold,
+      isLow: p.currentStock <= p.lowStockThreshold,
+      updateIntervalDays: p.updateIntervalDays ?? null,
+      stockLastUpdatedAt: p.stockLastUpdatedAt ?? null,
+    };
+  }
+
+    async updateThreshold(
     productId: string,
     businessId: string,
     dto: UpdateThresholdDto,
